@@ -6,7 +6,10 @@ require("dotenv").config();
  const ejs = require("ejs")
  const bodyParser = require("body-parser")
  const mongoose = require("mongoose")
- const encrypt = require("mongoose-encryption")
+ const bcrypt = require("bcrypt")
+ const saltRounds = 10
+ 
+
 
  const app = express()
 
@@ -31,11 +34,8 @@ require("dotenv").config();
  })
 
  
- //always add plugin before creating the model
 
-
- // ecrypt certain field ===> encryptedFields: ["password"]}
- userSchema.plugin(encrypt,  {secret : process.env.SECRET, encryptedFields: ["password"]})
+ 
 
  const User = mongoose.model("User", userSchema)
 
@@ -53,16 +53,19 @@ require("dotenv").config();
  })
 
  app.post("/register", function(req, res){
-  const newUser = new User({
-    email : req.body.username,
-    password : req.body.password
-  });
-  newUser.save(function(err){
-    if(err){
-      console.log(err);
-    }else{
-      res.render("secrets")
-    }
+
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash){
+    const newUser = new User({
+      email : req.body.username,
+      password : hash
+    });
+    newUser.save(function(err){
+      if(err){
+        console.log(err);
+      }else{
+        res.render("secrets")
+      }
+    })
   })
  })
 
@@ -72,8 +75,12 @@ require("dotenv").config();
   
   User.findOne({email : username}, function(err, foundUser){
     if(!err){
-      if(foundUser.password === password){
-        res.render("secrets")
+      if(foundUser){
+        bcrypt.compare(password, foundUser.password, function(err,result){
+          if(result === true){
+            res.render("secrets")
+          }
+        })
       }
     }else{
       console.log(err)
